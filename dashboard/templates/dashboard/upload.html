@@ -1,0 +1,17 @@
+{% include 'dashboard/navbar.html' %}
+
+<div class="d-flex justify-content-center align-items-start" style="min-height: 80vh; margin-top: 40px;">
+    <div class="shadow rounded p-4 bg-white" style="min-width: 500px;">
+
+        <h3 class="mb-4">📂 Įkelti naują CSV arba Excel failą</h3>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="mb-3">
+                <input type="file" name="csv_file" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-success">📤 Įkelti</button>
+        </form>
+
+    </div>
+</div>

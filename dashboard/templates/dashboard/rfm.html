@@ -1,0 +1,257 @@
+{% include "dashboard/navbar.html" %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+<div class="custom-container my-4">
+  <div class="d-flex justify-content-between flex-wrap gap-4">
+    <div class="client-block w-40 shadow p-3 bg-white rounded" style="height: 990px; min-width: 500px;">
+      <h5 class="mb-3 text-center">👥 Klientų sąrašas</h5>
+      <form method="get" class="mb-3">
+        <div class="input-group">
+          <input type="text" name="search" class="form-control" placeholder="🔎 Ieškoti el. pašto..." value="{{ email_query }}">
+          <button class="btn btn-primary" type="submit">Ieškoti</button>
+        </div>
+      </form>
+      <div id="user-list-container" class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Vardas</th>
+              <th>Pavardė</th>
+              <th class="d-none d-md-table-cell">El. paštas</th>
+              <th>Recency</th>
+              <th>Frequency</th>
+              <th>Monetary (€)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rfm_data %}
+            <tr>
+              <td>{{ row.first_name }}</td>
+              <td>{{ row.last_name }}</td>
+              <td class="d-none d-md-table-cell">{{ row.email }}</td>
+              <td>{{ row.Recency }}</td>
+              <td>{{ row.Frequency }}</td>
+              <td>{{ row.Monetary|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="export-buttons mt-3 text-center">
+        <a href="{% url 'export_rfm_excel' %}?{{ request.GET.urlencode }}" class="btn btn-success me-2">⬇️ Excel</a>
+        <a href="{% url 'export_rfm_pdf' %}?{{ request.GET.urlencode }}" class="btn btn-danger">📄 PDF</a>
+      </div>
+    </div>
+  <div class="chart-block">
+    <div class="rfm-header text-center mb-3">
+      <h4>📊 <strong>RFM analizė</strong></h4>
+    </div>
+    <div class="charts-grid">
+        <div class="chart-box shadow p-3 bg-white rounded">
+          <h6 class="text-center">📊 Segmentų pasiskirstymas</h6>
+          <canvas id="segmentCanvas" height="300"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+          <h6 class="text-center">📈 RFM sklaidos diagrama</h6>
+          <canvas id="rfmScatter" height="300"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+          <h6 class="text-center">📊 Vidutinės RFM reikšmės pagal segmentą</h6>
+          <canvas id="rfmSegmentAvg" height="300"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+          <h6 class="text-center">📉 RFM reikšmių pasiskirstymas</h6>
+          <canvas id="rfmHistograms" height="300"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  let currentChart = null;
+
+  function destroyExistingChart() {
+    if (currentChart) {
+      currentChart.destroy();
+      currentChart = null;
+    }
+  }
+  new Chart(document.getElementById('segmentCanvas').getContext('2d'), {
+    type: 'pie',
+    data: {
+      labels: {{ segment_labels|safe }},
+      datasets: [{
+        label: 'Klientų skaičius',
+        data: {{ segment_values|safe }},
+        backgroundColor: ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF']
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false
+    }
+  });
+
+    function drawNewChart() {
+    const ctx = document.getElementById('newChartCanvas').getContext('2d');
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Aukštas', 'Vidutinis', 'Žemas'],
+        datasets: [{
+          label: 'Lojalumo lygis',
+          data: [50, 30, 20],
+          backgroundColor: ['#4CAF50', '#FFC107', '#F44336']
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false
+      }
+    });
+  }
+
+new Chart(document.getElementById('rfmScatter').getContext('2d'), {
+  type: 'scatter',
+  data: {
+    datasets: [{
+      label: 'Klientai',
+      data: {{ rfm_scatter_data|safe }},
+      backgroundColor: 'rgba(75, 192, 192, 0.6)',
+    }]
+  },
+  options: {
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'Recency'
+        }
+      },
+      y: {
+        title: {
+          display: true,
+          text: 'Frequency'
+        },
+        ticks: {
+          stepSize: 1,
+          precision: 0
+        }
+      }
+    },
+    plugins: {
+      legend: { display: false }
+    }
+  }
+});
+
+  const rfmAvgData = {{ rfm_avg_data|safe }};
+  const rfmAvgLabels = Object.keys(rfmAvgData);
+
+  const labels = {{ segment_labels_avg|safe }};
+  const recencyValues = {{ segment_values_avg.Recency|safe }};
+  const frequencyValues = {{ segment_values_avg.Frequency|safe }};
+  const monetaryValues = {{ segment_values_avg.Monetary|safe }};
+
+  new Chart(document.getElementById('rfmSegmentAvg').getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: 'Recency (%)',
+          data: recencyValues,
+          backgroundColor: 'rgba(255, 99, 132, 0.5)'
+        },
+        {
+          label: 'Frequency (%)',
+          data: frequencyValues,
+          backgroundColor: 'rgba(54, 162, 235, 0.5)'
+        },
+        {
+          label: 'Monetary (%)',
+          data: monetaryValues,
+          backgroundColor: 'rgba(75, 192, 192, 0.5)'
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top' }
+      },
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          ticks: {
+            callback: function(value) {
+              return value + '%';
+            }
+          }
+        }
+      }
+    }
+  });
+
+const histLabels = {{ hist_labels|safe }};
+const recencyData = {{ hist_recency|safe }};
+const frequencyData = {{ hist_frequency|safe }};
+const monetaryData = {{ hist_monetary|safe }};
+
+new Chart(document.getElementById('rfmHistograms').getContext('2d'), {
+  type: 'bar',
+  data: {
+    labels: histLabels,
+    datasets: [
+      {
+        label: 'Recency',
+        data: recencyData,
+        backgroundColor: 'rgba(255, 159, 64, 0.5)'
+      },
+      {
+        label: 'Frequency',
+        data: frequencyData,
+        backgroundColor: 'rgba(153, 102, 255, 0.5)'
+      },
+      {
+        label: 'Monetary',
+        data: monetaryData,
+        backgroundColor: 'rgba(255, 205, 86, 0.5)'
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: {
+      legend: { position: 'top' }
+    },
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: 'Intervalas'
+        }
+      },
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: 'Kiekis'
+        }
+      }
+    }
+  }
+});
+
+  document.addEventListener('DOMContentLoaded', function () {
+    drawNewChart();
+  });
+</script>
+

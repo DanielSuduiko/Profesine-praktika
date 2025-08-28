@@ -1,0 +1,211 @@
+{% include "dashboard/navbar.html" %}
+{% load static %}
+
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+<div class="custom-container my-4">
+  <div class="d-flex justify-content-between flex-wrap gap-4">
+
+    <div class="client-block w-40 shadow p-3 bg-white rounded" style="height: 990px; min-width: 500px;">
+      <h5 class="mb-3 text-center">👥 Klientų sąrašas</h5>
+
+      <form method="get" class="mb-3">
+        <div class="input-group">
+          <input type="text" name="search" id="searchInput" class="form-control" placeholder="🔎 Ieškoti el. pašto..." value="{{ email_query }}">
+          <button class="btn btn-primary" type="submit">Ieškoti</button>
+        </div>
+      </form>
+
+      <div id="user-list-container" class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Vardas</th>
+              <th>Pavardė</th>
+              <th>El. paštas</th>
+              <th>Pirkimų sk.</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for client in client_data %}
+            <tr>
+              <td>{{ client.first_name }}</td>
+              <td>{{ client.last_name }}</td>
+              <td>{{ client.email }}</td>
+              <td>{{ client.order_count }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    <div class="export-buttons mt-3 text-center">
+        <a href="{% url 'export_frequency_excel' %}" class="btn btn-success me-2">⬇️ Excel</a>
+        <a href="{% url 'export_frequency_pdf' %}" class="btn btn-danger">📄 PDF</a>
+    </div>
+    </div>
+
+    <div class="chart-block">
+      <div class="rfm-header text-center mb-3">
+        <h4>📊 <strong>Purchase Frequency Analysis</strong></h4>
+      </div>
+
+      <div class="charts-grid d-flex flex-wrap gap-4 justify-content-between">
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+          <h6 class="text-center">📊 Basic Frequency Distribution</h6>
+          <canvas id="basicFreqChart" height="300"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+          <h6 class="text-center">📈 Cumulative Frequency Distribution</h6>
+          <canvas id="cumulativeChart" height="300"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+          <h6 class="text-center">💰 Revenue Contribution by Frequency</h6>
+          <canvas id="revenueChart" height="300"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+            <h5 class="text-center">🎯 Frequency Percentage Distribution (Grouped)</h5>
+            <canvas id="percentageChart" height="300"></canvas>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+
+const labels = JSON.parse('{{ freq_labels|escapejs }}');
+const values = JSON.parse('{{ freq_values|escapejs }}');
+const cumulative = JSON.parse('{{ cumulative_values|escapejs }}');
+const revenueLabels = JSON.parse('{{ freq_revenue_labels|escapejs }}');
+const revenueValues = JSON.parse('{{ freq_revenue_values|escapejs }}');
+const intervalLabels = JSON.parse('{{ interval_labels|escapejs }}');
+const intervalValues = JSON.parse('{{ interval_values|escapejs }}');
+
+document.getElementById('searchInput').addEventListener('input', function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#user-list-container tbody tr');
+
+    rows.forEach(row => {
+        const email = row.cells[2].textContent.toLowerCase();
+        const name = row.cells[0].textContent.toLowerCase();
+        const surname = row.cells[1].textContent.toLowerCase();
+
+        if (email.includes(filter) || name.includes(filter) || surname.includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+
+new Chart(document.getElementById('basicFreqChart'), {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Klientų skaičius',
+            data: values,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {display: true, text: 'Klientų skaičius'}
+            },
+            x: {
+                title: {display: true, text: 'Pirkimų skaičius'}
+            }
+        }
+    }
+});
+
+new Chart(document.getElementById('cumulativeChart'), {
+    type: 'line',
+    data: {
+        labels: labels,
+        datasets: [{
+            label: 'Kaupiamasis klientų skaičius',
+            data: cumulative,
+            borderColor: 'rgba(255, 99, 132, 1)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+            fill: true,
+            tension: 0.3
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {display: true, text: 'Kaupiamasis klientų skaičius'}
+            },
+            x: {
+                title: {display: true, text: 'Pirkimų skaičius'}
+            }
+        }
+    }
+});
+
+new Chart(document.getElementById('revenueChart'), {
+    type: 'bar',
+    data: {
+        labels: revenueLabels,
+        datasets: [{
+            label: 'Pajamos (€)',
+            data: revenueValues,
+            backgroundColor: 'rgba(255, 206, 86, 0.7)',
+        }]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {display: true, text: 'Pajamos (€)'}
+            },
+            x: {
+                title: {display: true, text: 'Pirkimų skaičius'}
+            }
+        }
+    }
+});
+
+new Chart(document.getElementById('percentageChart'), {
+    type: 'doughnut',
+    data: {
+        labels: intervalLabels,
+        datasets: [{
+            label: 'Klientų % pagal intervalus',
+            data: intervalValues,
+            backgroundColor: [
+                'rgba(54, 162, 235, 0.7)',
+                'rgba(255, 99, 132, 0.7)',
+                'rgba(255, 206, 86, 0.7)',
+                'rgba(75, 192, 192, 0.7)',
+                'rgba(153, 102, 255, 0.7)',
+                'rgba(255, 159, 64, 0.7)',
+                'rgba(201, 203, 207, 0.7)'
+            ]
+        }]
+    },
+    options: {
+        responsive: true,
+        plugins: {
+            legend: {
+                position: 'top'
+            }
+        }
+    }
+});
+</script>

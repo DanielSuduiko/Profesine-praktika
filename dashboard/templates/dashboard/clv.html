@@ -1,0 +1,167 @@
+{% include "dashboard/navbar.html" %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+<div class="custom-container my-4">
+
+  <div class="d-flex justify-content-between flex-wrap gap-4">
+
+    <div class="client-block w-40 shadow p-3 bg-white rounded" style="height: 990px; min-width: 500px;">
+      <h5 class="mb-3 text-center">👥 Klientų sąrašas</h5>
+
+      <form method="get" class="mb-3">
+        <div class="input-group">
+          <input type="text" name="search" id="searchInput" class="form-control" placeholder="🔎 Ieškoti el. pašto..." value="{{ email_query }}">
+          <button class="btn btn-primary" type="submit">Ieškoti</button>
+        </div>
+      </form>
+
+
+      <div id="user-list-container" class="table-responsive">
+        <table class="table table-bordered">
+          <thead>
+              <tr>
+                  <th>Vardas</th>
+                  <th>Pavardė</th>
+                  <th>El. paštas</th>
+                  <th>
+                      <a href="?sort=clv_value&order={% if order == 'asc' %}desc{% else %}asc{% endif %}">CLV (€)</a>
+                  </th>
+              </tr>
+          </thead>
+          <tbody>
+              {% for client in clv_data %}
+              <tr>
+                  <td>{{ client.first_name }}</td>
+                  <td>{{ client.last_name }}</td>
+                  <td>{{ client.email }}</td>
+                  <td>{{ client.CLV }}</td>
+              </tr>
+              {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+    <div class="export-buttons mt-3 text-center">
+        <a href="{% url 'export_clv_excel' %}" class="btn btn-success me-2">⬇️ Excel</a>
+        <a href="{% url 'export_clv_pdf' %}" class="btn btn-danger">📄 PDF</a>
+    </div>
+    </div>
+
+  <div class="chart-block">
+    <div class="rfm-header text-center mb-3">
+      <h4>📊 <strong>CLV analizė</strong></h4>
+    </div>
+
+    <div class="charts-grid d-flex flex-wrap gap-4 justify-content-between">
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+            <h6 class="text-center">📊 CLV pasiskirstymas</h6>
+            <canvas id="clvHist"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+            <h6 class="text-center">🏆 Top 5 klientai pagal CLV</h6>
+            <canvas id="clvTop"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+          <h6 class="text-center">📏 Vidutinis CLV pagal segmentą</h6>
+          <canvas id="clvSegmentAvg" height="300"></canvas>
+        </div>
+
+        <div class="chart-box shadow p-3 bg-white rounded">
+            <h6 class="text-center">📈 CLV augimas per mėnesius</h6>
+            <canvas id="clvOverTime"></canvas>
+        </div>
+    </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.getElementById('searchInput').addEventListener('input', function() {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll('#user-list-container tbody tr');
+
+    rows.forEach(row => {
+        const email = row.cells[2].textContent.toLowerCase();
+        const name = row.cells[0].textContent.toLowerCase();
+        const surname = row.cells[1].textContent.toLowerCase();
+
+        if (email.includes(filter) || name.includes(filter) || surname.includes(filter)) {
+            row.style.display = '';
+        } else {
+            row.style.display = 'none';
+        }
+    });
+});
+    new Chart(document.getElementById('clvHist'), {
+        type: 'bar',
+        data: {
+            labels: {{ hist_labels|safe }},
+            datasets: [{
+                label: 'Klientų skaičius',
+                data: {{ hist_values|safe }},
+                backgroundColor: 'rgba(75, 192, 192, 0.6)'
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    new Chart(document.getElementById('clvTop'), {
+        type: 'bar',
+        data: {
+            labels: {{ top_labels|safe }},
+            datasets: [{
+                label: 'CLV (€)',
+                data: {{ top_values|safe }},
+                backgroundColor: 'rgba(255, 99, 132, 0.6)'
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    new Chart(document.getElementById('clvSegmentAvg').getContext('2d'), {
+      type: 'bar',
+      data: {
+        labels: {{ segment_labels|safe }},
+        datasets: [{
+          label: 'Vidutinis CLV (€)',
+          data: {{ segment_values|safe }},
+          backgroundColor: ['rgba(54, 162, 235, 0.5)', 'rgba(255, 205, 86, 0.5)', 'rgba(255, 99, 132, 0.5)']
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: { display: false }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'CLV (€)'
+            }
+          }
+        }
+      }
+    });
+
+    new Chart(document.getElementById('clvOverTime'), {
+        type: 'line',
+        data: {
+            labels: {{ monthly_labels|safe }},
+            datasets: [{
+                label: 'CLV suma (€)',
+                data: {{ monthly_values|safe }},
+                borderColor: 'rgba(54, 162, 235, 1)',
+                backgroundColor: 'rgba(54, 162, 235, 0.4)',
+                fill: true
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+</script>
