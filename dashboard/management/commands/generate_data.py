@@ -32,7 +32,7 @@ class Command(BaseCommand):
                 num_orders = random.randint(10, 30)
             elif client_type == 'regular':
                 num_orders = random.randint(3, 7)
-            else:  # one_timer
+            else:
                 num_orders = random.randint(1, 2)
 
             client = Client.objects.create(
